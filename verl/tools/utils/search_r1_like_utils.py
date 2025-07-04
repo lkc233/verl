@@ -127,14 +127,21 @@ def call_search_api(
     return None, last_error.replace(log_prefix, "API Call Failed: ") if last_error else "API Call Failed after retries"
 
 
+# def _passages2string(retrieval_result):
+#     """Convert retrieval results to formatted string."""
+#     format_reference = ""
+#     for idx, doc_item in enumerate(retrieval_result):
+#         content = doc_item["document"]["contents"]
+#         title = content.split("\n")[0]
+#         text = "\n".join(content.split("\n")[1:])
+#         format_reference += f"Doc {idx + 1} (Title: {title})\n{text}\n\n"
+#     return format_reference.strip()
 def _passages2string(retrieval_result):
     """Convert retrieval results to formatted string."""
     format_reference = ""
     for idx, doc_item in enumerate(retrieval_result):
-        content = doc_item["document"]["contents"]
-        title = content.split("\n")[0]
-        text = "\n".join(content.split("\n")[1:])
-        format_reference += f"Doc {idx + 1} (Title: {title})\n{text}\n\n"
+        content = doc_item["document"]
+        format_reference += f"<法条{idx + 1}>\n{content}\n</法条{idx + 1}>\n"
     return format_reference.strip()
 
 
@@ -220,7 +227,7 @@ def perform_single_search_batch(
                     total_results += len(retrieval) if isinstance(retrieval, list) else 1
 
                 final_result = "\n---\n".join(pretty_results)
-                result_text = json.dumps({"result": final_result})
+                result_text = json.dumps({"result": final_result}, ensure_ascii=False)
                 metadata["status"] = "success"
                 metadata["total_results"] = total_results
                 metadata["formatted_result"] = final_result
@@ -231,6 +238,8 @@ def perform_single_search_batch(
                 metadata["total_results"] = 0
                 logger.info("Batch search: No results found")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             error_msg = f"Error processing search results: {e}"
             result_text = json.dumps({"result": error_msg})
             metadata["status"] = "processing_error"
