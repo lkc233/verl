@@ -46,7 +46,7 @@ while true; do
     
     if $ALL_IDLE; then
         echo "所有GPU都处于闲置状态，开始运行train.sh"
-        bash "scripts/verl/run_lawyer_grpo_v5.sh"
+        bash "run_scripts/run.sh"
         echo "train.sh 执行完成，退出监控"
         exit 0
     else

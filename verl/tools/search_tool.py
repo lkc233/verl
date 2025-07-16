@@ -266,6 +266,8 @@ class SearchTool(BaseTool):
             return result_text, 0.0, metrics
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             error_result = json.dumps({"result": f"Search execution failed: {e}"})
             logger.error(f"[SearchTool] Execution failed: {e}")
             return error_result, 0.0, {"error": str(e)}

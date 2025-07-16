@@ -1,0 +1,67 @@
+tools:
+  - class_name: verl.tools.search_tool.SearchTool
+    config:
+      retrieval_service_url: http://222.29.51.209:8720/retrieve_article
+      num_workers: 120
+      rate_limit: 120
+      timeout: 300
+      type: native
+    tool_schema:
+      type: function
+      function:
+        name: search_article
+        description: Given a list of queries, return the relevant articles that match the queries.
+        parameters:
+          type: object
+          properties:
+            query_list:
+              type: array
+              item:
+                type: string
+              description: A list of legal article queries
+          required: 
+            - query_list
+  - class_name: verl.tools.search_tool.SearchTool
+    config:
+      retrieval_service_url: http://222.29.51.209:8720/retrieve_interpretation
+      num_workers: 120
+      rate_limit: 120
+      timeout: 300
+      type: native
+    tool_schema:
+      type: function
+      function:
+        name: search_interpretation
+        description: Given a list of queries, return the relevant judicial interpretations that match the queries.
+        parameters:
+          type: object
+          properties:
+            query_list:
+              type: array
+              item:
+                type: string
+              description: A list of judicial interpretation queries
+          required: 
+            - query_list
+  - class_name: verl.tools.search_tool.SearchTool
+    config:
+      retrieval_service_url: http://222.29.51.209:8720/retrieve_reference_book
+      num_workers: 120
+      rate_limit: 120
+      timeout: 300
+      type: native
+    tool_schema:
+      type: function
+      function:
+        name: search_reference_book
+        description: Given a list of queries, return the relevant knowledge points from legal reference books that match the queries.
+        parameters:
+          type: object
+          properties:
+            query_list:
+              type: array
+              item:
+                type: string
+              description: A list of knowledge point queries from legal reference books
+          required: 
+            - query_list

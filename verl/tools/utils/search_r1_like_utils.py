@@ -20,6 +20,8 @@ import time
 import traceback
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
+from verl.tools.utils.legal_search_r1_utils import extract_json_content, filter_prompt_templates
+from verl.tools.utils.llm_api_demo import call_vllm
 
 import requests
 
@@ -136,13 +138,102 @@ def call_search_api(
 #         text = "\n".join(content.split("\n")[1:])
 #         format_reference += f"Doc {idx + 1} (Title: {title})\n{text}\n\n"
 #     return format_reference.strip()
-def _passages2string(retrieval_result):
+# ========== Filter API 负载均衡 ===========
+filter_api_list = [
+    "http://222.29.51.205:7281",
+    "http://222.29.51.205:7282",
+    "http://222.29.51.205:7283",
+    "http://222.29.51.205:7284"
+]
+# filter_api_list = [
+#     "http://222.29.51.205:7277",
+#     "http://222.29.51.205:7278",
+#     "http://222.29.51.205:7279",
+#     "http://222.29.51.205:7280",
+# ]
+filter_api_idx = 0
+from threading import Lock
+filter_api_lock = Lock()
+
+def get_next_filter_api():
+    global filter_api_idx
+    with filter_api_lock:
+        idx = filter_api_idx
+        filter_api_idx = (filter_api_idx + 1) % len(filter_api_list)
+    return filter_api_list[idx]
+# ========== End ===========
+def _passages2string(retrieval_result, retrieval_service_url: str, query_list)-> Tuple[str, int]:
     """Convert retrieval results to formatted string."""
-    format_reference = ""
-    for idx, doc_item in enumerate(retrieval_result):
-        content = doc_item["document"]
-        format_reference += f"<法条{idx + 1}>\n{content}\n</法条{idx + 1}>\n"
-    return format_reference.strip()
+    api_to_tool_name = {
+        "http://222.29.51.209:8720/retrieve_article": "search_article",
+        "http://222.29.51.209:8720/retrieve_interpretation": "search_interpretation",
+        "http://222.29.51.209:8720/retrieve_reference_book": "search_reference_book"
+    }
+    total_results = 0
+    tool_call_name = api_to_tool_name.get(retrieval_service_url, "unknown_tool")
+    if tool_call_name in ['search_article', 'search_interpretation']:
+        retrieved_list = [_['document'] for a in retrieval_result for _ in a]
+        retrieved_set = list(set(retrieved_list))  # 去重
+        retrieved_set = sorted(retrieved_set)
+        total_results = len(retrieved_set)
+        if retrieved_set:
+            filter_prompt_template = filter_prompt_templates[tool_call_name]
+            filter_prompt = filter_prompt_template.format(
+                llm_articles=json.dumps(query_list, ensure_ascii=False),
+                correct_articles=json.dumps(retrieved_set, ensure_ascii=False)
+            )
+            max_retries_filter = 10
+            filter_result = []  # Ensure filter_result is always defined
+            filter_response = ''
+            for filter_attempt in range(1, max_retries_filter + 1):
+                try:
+                    filter_api_url = get_next_filter_api()
+                    filter_response = call_vllm(prompt=filter_prompt, model="Qwen/Qwen2.5-14B-Instruct", base_url=filter_api_url)
+                    filter_json_content = extract_json_content(filter_response)
+                    if filter_json_content is not None:
+                        filter_result = json.loads(filter_json_content)
+                        break
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"Error parsing filter response: {e}")
+                    filter_result = []
+        else:
+            filter_result = []
+    elif tool_call_name == 'search_reference_book':
+        docs = [_['document'] for a in retrieval_result for _ in a]
+        docs = [json.loads(x) for x in sorted(set(json.dumps(d, sort_keys=True, ensure_ascii=False) for d in docs))]
+        filter_prompt_template = filter_prompt_templates[tool_call_name]
+        filter_prompt = filter_prompt_template.format(
+            llm_knowledge=json.dumps(query_list, ensure_ascii=False),
+            retrieved_knowledge=json.dumps(docs, ensure_ascii=False)
+        )
+        max_retries_filter = 10
+        filter_response = ''
+        filter_result = []  # Ensure filter_result is always defined
+        for filter_attempt in range(1, max_retries_filter + 1):
+            try:
+                filter_api_url = get_next_filter_api()
+                filter_response = call_vllm(prompt=filter_prompt, model="Qwen/Qwen2.5-14B-Instruct", base_url=filter_api_url)
+                filter_json_content = extract_json_content(filter_response)
+                if filter_json_content is not None:
+                    filter_result = json.loads(filter_json_content)
+                    break
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(f"Error parsing filter response: {e}")
+                filter_result = []
+    else:
+        raise ValueError(f"Unsupported tool call name: {tool_call_name}")
+    total_results = len(filter_result) if isinstance(filter_result, list) else 0
+    
+    format_reference = json.dumps(filter_result, ensure_ascii=False)
+    # format_reference = ""
+    # for idx, doc_item in enumerate(retrieval_result):
+    #     content = doc_item["document"]
+    #     format_reference += f"<法条{idx + 1}>\n{content}\n</法条{idx + 1}>\n"
+    return format_reference.strip(), total_results
 
 
 def perform_single_search_batch(
@@ -218,15 +309,16 @@ def perform_single_search_batch(
         try:
             raw_results = api_response.get("result", [])
             if raw_results:
-                pretty_results = []
-                total_results = 0
+                # pretty_results = []
+                # total_results = 0
 
-                for retrieval in raw_results:
-                    formatted = _passages2string(retrieval)
-                    pretty_results.append(formatted)
-                    total_results += len(retrieval) if isinstance(retrieval, list) else 1
+                # for retrieval in raw_results:
+                #     formatted = _passages2string(retrieval)
+                #     pretty_results.append(formatted)
+                #     total_results += len(retrieval) if isinstance(retrieval, list) else 1
 
-                final_result = "\n---\n".join(pretty_results)
+                # final_result = "\n---\n".join(pretty_results)
+                final_result, total_results = _passages2string(raw_results, retrieval_service_url, query_list)
                 result_text = json.dumps({"result": final_result}, ensure_ascii=False)
                 metadata["status"] = "success"
                 metadata["total_results"] = total_results
