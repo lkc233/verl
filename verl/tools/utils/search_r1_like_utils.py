@@ -188,7 +188,7 @@ def _passages2string(retrieval_result, retrieval_service_url: str, query_list)->
             for filter_attempt in range(1, max_retries_filter + 1):
                 try:
                     filter_api_url = get_next_filter_api()
-                    filter_response = call_vllm(prompt=filter_prompt, model="Qwen/Qwen2.5-14B-Instruct", base_url=filter_api_url)
+                    filter_response = call_vllm(prompt=filter_prompt, model="Qwen/Qwen2.5-14B-Instruct", base_url=filter_api_url,timeout=3000)
                     filter_json_content = extract_json_content(filter_response)
                     if filter_json_content is not None:
                         filter_result = json.loads(filter_json_content)
@@ -214,7 +214,7 @@ def _passages2string(retrieval_result, retrieval_service_url: str, query_list)->
         for filter_attempt in range(1, max_retries_filter + 1):
             try:
                 filter_api_url = get_next_filter_api()
-                filter_response = call_vllm(prompt=filter_prompt, model="Qwen/Qwen2.5-14B-Instruct", base_url=filter_api_url)
+                filter_response = call_vllm(prompt=filter_prompt, model="Qwen/Qwen2.5-14B-Instruct", base_url=filter_api_url,timeout=3000)
                 filter_json_content = extract_json_content(filter_response)
                 if filter_json_content is not None:
                     filter_result = json.loads(filter_json_content)

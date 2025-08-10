@@ -4,7 +4,7 @@ tools:
       retrieval_service_url: http://222.29.51.209:8720/retrieve_article
       num_workers: 120
       rate_limit: 120
-      timeout: 300
+      timeout: 3000
       type: native
     tool_schema:
       type: function
@@ -26,7 +26,7 @@ tools:
       retrieval_service_url: http://222.29.51.209:8720/retrieve_interpretation
       num_workers: 120
       rate_limit: 120
-      timeout: 300
+      timeout: 3000
       type: native
     tool_schema:
       type: function
@@ -48,7 +48,7 @@ tools:
       retrieval_service_url: http://222.29.51.209:8720/retrieve_reference_book
       num_workers: 120
       rate_limit: 120
-      timeout: 300
+      timeout: 3000
       type: native
     tool_schema:
       type: function
